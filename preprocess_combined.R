@@ -129,9 +129,14 @@ kw_measure_wide <- kw_measure_f %>%
     values_fn   = ~ .x[1]
   )
 
-# ── 고혈압 레이블 부착 ────────────────────────────────────────
+# ── person: SEX / AGE 산출용 ─────────────────────────────────
+kw_person_f <- inner_join(kw_person, kw_end_vid, by = "person_id") %>%
+  select(person_id, gender_concept_id, year_of_birth)
+
+# ── 고혈압 레이블 + SEX / AGE 부착 ───────────────────────────
 kw_final <- kw_measure_wide %>%
-  left_join(kw_hyper, by = "person_id") %>%
+  left_join(kw_hyper,    by = "person_id") %>%
+  left_join(kw_person_f, by = "person_id") %>%
   filter(is.na(end_date) | measurement_date <= end_date) %>%
   group_by(person_id) %>%
   mutate(
@@ -140,7 +145,16 @@ kw_final <- kw_measure_wide %>%
     hyper          = if_else(!is.na(end_date) & last_visit_chk == 1L, 1L, 0L)
   ) %>%
   ungroup() %>%
-  select(-last_visit, -last_visit_chk, -end_date, -visit_occurrence_id) %>%
+  mutate(
+    SEX = case_when(
+      gender_concept_id == 8507 ~ "M",
+      gender_concept_id == 8532 ~ "F",
+      TRUE ~ NA_character_
+    ),
+    AGE = year(measurement_date) - year_of_birth
+  ) %>%
+  select(-last_visit, -last_visit_chk, -end_date, -visit_occurrence_id,
+         -gender_concept_id, -year_of_birth) %>%
   mutate(site = "kangwon")
 
 cat("강원대 전처리 완료 | rows:", nrow(kw_final), "| cols:", ncol(kw_final), "\n")
@@ -200,9 +214,14 @@ hlym_measure_wide <- hlym_measure_f %>%
     values_fn   = ~ .x[1]
   )
 
-# ── 고혈압 레이블 부착 ────────────────────────────────────────
+# ── person: SEX / AGE 산출용 ─────────────────────────────────
+hlym_person_f <- inner_join(hlym_person, hlym_end_vid, by = "person_id") %>%
+  select(person_id, gender_concept_id, year_of_birth)
+
+# ── 고혈압 레이블 + SEX / AGE 부착 ───────────────────────────
 hlym_final <- hlym_measure_wide %>%
-  left_join(hlym_hyper, by = "person_id") %>%
+  left_join(hlym_hyper,    by = "person_id") %>%
+  left_join(hlym_person_f, by = "person_id") %>%
   filter(is.na(end_date) | measurement_date <= end_date) %>%
   group_by(person_id) %>%
   mutate(
@@ -211,7 +230,16 @@ hlym_final <- hlym_measure_wide %>%
     hyper          = if_else(!is.na(end_date) & last_visit_chk == 1L, 1L, 0L)
   ) %>%
   ungroup() %>%
-  select(-last_visit, -last_visit_chk, -end_date, -visit_occurrence_id) %>%
+  mutate(
+    SEX = case_when(
+      gender_concept_id == 8507 ~ "M",
+      gender_concept_id == 8532 ~ "F",
+      TRUE ~ NA_character_
+    ),
+    AGE = year(measurement_date) - year_of_birth
+  ) %>%
+  select(-last_visit, -last_visit_chk, -end_date, -visit_occurrence_id,
+         -gender_concept_id, -year_of_birth) %>%
   mutate(site = "hallym")
 
 cat("한림대 전처리 완료 | rows:", nrow(hlym_final), "| cols:", ncol(hlym_final), "\n")
