@@ -24,18 +24,13 @@ kw_visit     <- fread("/home/byeonggeun/data/cdm/cdm20251022/cdm_visit_occurrenc
 kw_drug      <- fread("/home/byeonggeun/data/cdm/cdm20251022/cdm_drug_exposure_$20251022.csv",         encoding = "UTF-8")
 kw_caresite  <- fread("/home/byeonggeun/data/cdm/cdm20251022/cdm_care_site_$20251022.csv",             encoding = "UTF-8")
 
-# ── 한림대 CDM ───────────────────────────────────────────────
-# NOTE: 아래 컬럼명은 실제 파일 구조에 맞게 확인 후 섹션 2-B 에서 매핑하세요.
+# ── 한림대 CDM (강원대와 동일한 OMOP CDM 컬럼 구조) ──────────
 hlym_person  <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/1.환자정보.csv",   encoding = "UTF-8")
 hlym_visit   <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/2.방문정보.csv",   encoding = "UTF-8")
 hlym_death   <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/3.사망정보.csv",   encoding = "UTF-8")
 hlym_cond    <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/4.진단정보.csv",   encoding = "UTF-8")
 hlym_measure <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/5.검사정보.csv",   encoding = "UTF-8")
 hlym_drug    <- fread("/home/byeonggeun/data/hallym_huc/정밀의료구현_한림대_가명화데이터/6.약물정보.csv",   encoding = "UTF-8")
-
-# 컬럼명 확인 (처음 실행 시 주석 해제하여 확인)
-# lapply(list(hlym_person=hlym_person, hlym_visit=hlym_visit, hlym_death=hlym_death,
-#             hlym_cond=hlym_cond, hlym_measure=hlym_measure, hlym_drug=hlym_drug), colnames)
 
 
 # ============================================================
@@ -144,69 +139,26 @@ cat("강원대 전처리 완료 | rows:", nrow(kw_final), "\n")
 
 
 # ============================================================
-# 2-B. 한림대 전처리
+# 2-B. 한림대 전처리 (강원대와 동일한 컬럼 구조)
 # ============================================================
-# NOTE: 아래 rename() 블록은 한림대 원본 컬럼명에 맞게 수정하세요.
-#       colnames(hlym_measure) 등으로 실제 컬럼명을 먼저 확인하세요.
-
-# ── 한림대 컬럼명 표준화 (OMOP CDM 규격으로 통일) ─────────────
-# (실제 컬럼명 확인 후 좌측=원본컬럼명, 우측=표준명 으로 수정)
-hlym_measure_std <- hlym_measure %>%
-  rename(
-    person_id              = person_id,             # 예: 환자ID → person_id
-    measurement_concept_id = measurement_concept_id,# 예: 검사개념ID
-    measurement_date       = measurement_date,       # 예: 검사일자
-    value_as_number        = value_as_number,        # 예: 검사결과수치
-    unit_concept_id        = unit_concept_id,        # 예: 단위개념ID
-    visit_occurrence_id    = visit_occurrence_id     # 예: 방문ID
-  )
-
-hlym_cond_std <- hlym_cond %>%
-  rename(
-    person_id              = person_id,
-    condition_concept_id   = condition_concept_id,
-    condition_start_date   = condition_start_date,
-    visit_occurrence_id    = visit_occurrence_id
-  )
-
-hlym_drug_std <- hlym_drug %>%
-  rename(
-    person_id                 = person_id,
-    drug_concept_id           = drug_concept_id,
-    drug_exposure_start_date  = drug_exposure_start_date,
-    visit_occurrence_id       = visit_occurrence_id
-  )
-
-hlym_person_std <- hlym_person %>%
-  rename(
-    person_id        = person_id,
-    gender_concept_id = gender_concept_id,
-    year_of_birth    = year_of_birth,
-    month_of_birth   = month_of_birth,
-    day_of_birth     = day_of_birth
-  )
-
-hlym_death_std <- hlym_death %>%
-  rename(
-    person_id         = person_id,
-    death_date        = death_date,
-    cause_source_value = cause_source_value
-  )
 
 # ── 한림대 전체 대상자 (데이터 내 모든 person_id 사용) ─────────
 hlym_end_vid <- bind_rows(
-  hlym_measure_std %>% distinct(person_id),
-  hlym_cond_std    %>% distinct(person_id),
-  hlym_drug_std    %>% distinct(person_id)
+  hlym_measure %>% distinct(person_id),
+  hlym_cond    %>% distinct(person_id),
+  hlym_drug    %>% distinct(person_id)
 ) %>% distinct(person_id)
 
 # ── 각 테이블 대상자 필터링 ───────────────────────────────────
-hlym_measure_f <- inner_join(hlym_measure_std, hlym_end_vid, by = "person_id") %>%
-  select(person_id, measurement_concept_id, measurement_date, value_as_number, unit_concept_id)
+hlym_measure_f <- inner_join(hlym_measure, hlym_end_vid, by = "person_id") %>%
+  select(person_id, measurement_concept_id, measurement_date,
+         value_as_number, unit_concept_id, visit_occurrence_id)
 
-hlym_drug_f <- inner_join(hlym_drug_std, hlym_end_vid, by = "person_id")
+hlym_drug_f <- inner_join(hlym_drug, hlym_end_vid, by = "person_id") %>%
+  select(person_id, drug_concept_id, drug_exposure_start_date)
 
-hlym_cond_f <- inner_join(hlym_cond_std, hlym_end_vid, by = "person_id")
+hlym_cond_f <- inner_join(hlym_cond, hlym_end_vid, by = "person_id") %>%
+  select(person_id, condition_concept_id, condition_start_date)
 
 # ── 고혈압 최초 발생일 ────────────────────────────────────────
 hlym_hyper_cond <- hlym_cond_f %>%
@@ -231,7 +183,7 @@ hlym_hyper <- bind_rows(hlym_hyper_cond, hlym_hyper_drug) %>%
 hlym_measure_wide <- hlym_measure_f %>%
   arrange(person_id, measurement_date) %>%
   pivot_wider(
-    id_cols    = c(person_id, measurement_date),
+    id_cols    = c(person_id, visit_occurrence_id, measurement_date),
     names_from = measurement_concept_id,
     values_from = c(value_as_number, unit_concept_id),
     names_glue = "{measurement_concept_id}_{.value}",
@@ -250,7 +202,7 @@ hlym_final <- hlym_measure_wide %>%
   ) %>%
   ungroup() %>%
   select(-last_visit) %>%
-  select(-contains(c("unit", "end_date", "chk"))) %>%
+  select(-contains(c("unit", "visit", "end_date", "chk"))) %>%
   mutate(site = "hallym")   # 병원 구분 컬럼
 
 cat("한림대 전처리 완료 | rows:", nrow(hlym_final), "\n")
